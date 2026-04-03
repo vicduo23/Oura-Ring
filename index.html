@@ -1219,19 +1219,30 @@ async function fetchOura(endpoint, days) {
   const startStr = start.toISOString().split('T')[0];
   const endStr = end.toISOString().split('T')[0];
 
-  const url = `https://api.ouraring.com/v2/usercollection/${endpoint}?start_date=${startStr}&end_date=${endStr}`;
+  const targetUrl = `https://api.ouraring.com/v2/usercollection/${endpoint}?start_date=${startStr}&end_date=${endStr}`;
 
-  const res = await fetch(url, {
-    headers: { 'Authorization': `Bearer ${ouraToken}` }
-  });
+  // Try direct first, fall back to CORS proxy
+  const attempts = [
+    () => fetch(targetUrl, { headers: { 'Authorization': `Bearer ${ouraToken}` } }),
+    () => fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`, { headers: { 'Authorization': `Bearer ${ouraToken}` } }),
+    () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`, { headers: { 'Authorization': `Bearer ${ouraToken}` } }),
+  ];
 
-  if (!res.ok) {
-    if (res.status === 401) throw new Error('Token 无效或已过期');
-    throw new Error(`HTTP ${res.status}`);
+  let lastError;
+  for (const attempt of attempts) {
+    try {
+      const res = await attempt();
+      if (res.status === 401) throw new Error('Token 无效或已过期，请重新生成');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      return json.data || [];
+    } catch (e) {
+      lastError = e;
+      if (e.message.includes('Token')) throw e; // Don't retry auth errors
+      continue;
+    }
   }
-
-  const json = await res.json();
-  return json.data || [];
+  throw lastError;
 }
 
 // ── RENDER ──
