@@ -1,0 +1,1626 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oura Health Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap');
+
+  :root {
+    --bg: #0a0c0f;
+    --bg2: #111318;
+    --bg3: #181c23;
+    --border: rgba(255,255,255,0.07);
+    --border-bright: rgba(255,255,255,0.15);
+    --text: #e8eaf0;
+    --text-dim: #6b7280;
+    --text-mid: #9ca3af;
+    --accent: #7effa0;
+    --accent2: #5bc8ff;
+    --accent3: #ff8c5a;
+    --accent4: #c084fc;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --good: #34d399;
+    --card-radius: 16px;
+    --mono: 'DM Mono', monospace;
+    --display: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── SETUP SCREEN ── */
+  #setup-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+  }
+
+  #setup-screen::before {
+    content: '';
+    position: absolute;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(126,255,160,0.06) 0%, transparent 70%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .setup-card {
+    background: var(--bg2);
+    border: 1px solid var(--border-bright);
+    border-radius: 24px;
+    padding: 48px;
+    max-width: 480px;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+  }
+
+  .setup-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 36px;
+  }
+
+  .setup-logo .ring-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 3px solid var(--accent);
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .setup-logo .ring-icon::after {
+    content: '';
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.3;
+  }
+
+  .setup-logo span {
+    font-family: var(--display);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .setup-title {
+    font-family: var(--display);
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 10px;
+    letter-spacing: -0.03em;
+  }
+
+  .setup-sub {
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+
+  .setup-label {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .setup-input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 12px;
+  }
+
+  .setup-input:focus { border-color: var(--accent); }
+
+  .setup-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 28px;
+    line-height: 1.5;
+  }
+
+  .setup-hint a { color: var(--accent2); text-decoration: none; }
+
+  .setup-btn {
+    width: 100%;
+    background: var(--accent);
+    color: #0a0c0f;
+    border: none;
+    border-radius: 10px;
+    padding: 14px;
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    letter-spacing: -0.01em;
+  }
+
+  .setup-btn:hover { opacity: 0.9; }
+  .setup-btn:active { transform: scale(0.99); }
+
+  .setup-privacy {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 20px;
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .setup-privacy::before {
+    content: '🔒';
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* ── MAIN DASHBOARD ── */
+  #dashboard { display: none; }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: rgba(10,12,15,0.92);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .topbar-logo {
+    font-family: var(--display);
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  .topbar-logo span { color: var(--accent); }
+
+  .topbar-date {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .refresh-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 14px;
+    color: var(--text-mid);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .logout-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 14px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .logout-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+  .main-content {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 28px;
+  }
+
+  /* ── ALERTS ── */
+  .alerts-section {
+    margin-bottom: 24px;
+  }
+
+  .alert-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 18px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+    border-left: 3px solid;
+    animation: slideIn 0.3s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .alert-item.warn {
+    background: rgba(251,191,36,0.08);
+    border-color: var(--warn);
+    color: #fde68a;
+  }
+
+  .alert-item.danger {
+    background: rgba(248,113,113,0.08);
+    border-color: var(--danger);
+    color: #fca5a5;
+  }
+
+  .alert-item.good {
+    background: rgba(52,211,153,0.08);
+    border-color: var(--good);
+    color: #6ee7b7;
+  }
+
+  .alert-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+  /* ── SCORE CARDS ── */
+  .score-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 900px) {
+    .score-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 500px) {
+    .score-grid { grid-template-columns: 1fr 1fr; }
+    .main-content { padding: 16px; }
+  }
+
+  .score-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .score-card:hover { border-color: var(--border-bright); }
+
+  .score-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 0 0 var(--card-radius) var(--card-radius);
+  }
+
+  .score-card.sleep::after { background: var(--accent2); }
+  .score-card.readiness::after { background: var(--accent); }
+  .score-card.hrv::after { background: var(--accent4); }
+  .score-card.activity::after { background: var(--accent3); }
+
+  .score-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+
+  .score-value {
+    font-family: var(--display);
+    font-size: 44px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .score-card.sleep .score-value { color: var(--accent2); }
+  .score-card.readiness .score-value { color: var(--accent); }
+  .score-card.hrv .score-value { color: var(--accent4); }
+  .score-card.activity .score-value { color: var(--accent3); }
+
+  .score-unit {
+    font-size: 14px;
+    font-weight: 400;
+    opacity: 0.6;
+    margin-left: 4px;
+  }
+
+  .score-delta {
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .delta-up { color: var(--good); }
+  .delta-down { color: var(--danger); }
+  .delta-flat { color: var(--text-dim); }
+
+  .score-bar {
+    margin-top: 12px;
+    height: 3px;
+    background: var(--bg3);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s ease;
+  }
+
+  .score-card.sleep .score-bar-fill { background: var(--accent2); }
+  .score-card.readiness .score-bar-fill { background: var(--accent); }
+  .score-card.hrv .score-bar-fill { background: var(--accent4); }
+  .score-card.activity .score-bar-fill { background: var(--accent3); }
+
+  /* ── CHARTS GRID ── */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 768px) {
+    .charts-grid { grid-template-columns: 1fr; }
+  }
+
+  .chart-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 22px;
+  }
+
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+
+  .chart-title {
+    font-family: var(--display);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .chart-badge {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    background: var(--bg3);
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+
+  .chart-container { position: relative; height: 180px; }
+
+  /* ── TRAINING DECISION ── */
+  .training-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 22px;
+    margin-bottom: 24px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 20px;
+    align-items: center;
+  }
+
+  .training-indicator {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid;
+    flex-shrink: 0;
+  }
+
+  .training-indicator.high { border-color: var(--good); background: rgba(52,211,153,0.08); }
+  .training-indicator.medium { border-color: var(--warn); background: rgba(251,191,36,0.08); }
+  .training-indicator.low { border-color: var(--accent3); background: rgba(255,140,90,0.08); }
+  .training-indicator.rest { border-color: var(--danger); background: rgba(248,113,113,0.08); }
+
+  .training-indicator .t-icon { font-size: 24px; margin-bottom: 2px; }
+  .training-indicator .t-label { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .training-info { }
+  .training-title {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    letter-spacing: -0.02em;
+  }
+
+  .training-desc { font-size: 13px; color: var(--text-mid); line-height: 1.6; }
+
+  /* ── AI BRIEF ── */
+  .ai-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 22px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ai-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent4), transparent);
+  }
+
+  .ai-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .ai-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ai-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent4);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .ai-title {
+    font-family: var(--display);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .ai-generate-btn {
+    background: rgba(192,132,252,0.1);
+    border: 1px solid rgba(192,132,252,0.3);
+    border-radius: 8px;
+    padding: 7px 14px;
+    color: var(--accent4);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .ai-generate-btn:hover { background: rgba(192,132,252,0.2); }
+  .ai-generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .ai-content {
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text-mid);
+  }
+
+  .ai-content p { margin-bottom: 10px; }
+  .ai-content p:last-child { margin-bottom: 0; }
+
+  .ai-loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  .ai-loading-dots span {
+    display: inline-block;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--accent4);
+    animation: blink 1.4s infinite;
+    margin: 0 1px;
+  }
+
+  .ai-loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .ai-loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes blink {
+    0%, 80%, 100% { opacity: 0.2; }
+    40% { opacity: 1; }
+  }
+
+  /* ── SLEEP STAGES ── */
+  .sleep-stages {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .stage-item {
+    background: var(--bg3);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .stage-label {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .stage-value {
+    font-family: var(--display);
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .stage-deep { color: #6366f1; }
+  .stage-rem { color: var(--accent4); }
+  .stage-light { color: var(--accent2); }
+  .stage-awake { color: var(--text-dim); }
+
+  /* ── LOG INPUT ── */
+  .log-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 22px;
+    margin-bottom: 24px;
+  }
+
+  .log-title {
+    font-family: var(--display);
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    letter-spacing: -0.01em;
+  }
+
+  .log-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  @media (max-width: 600px) {
+    .log-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  .log-item label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .log-item select,
+  .log-item input[type="number"],
+  .log-item input[type="time"] {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+
+  .log-item select:focus,
+  .log-item input:focus { border-color: var(--accent); }
+
+  .log-save-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border-bright);
+    border-radius: 8px;
+    padding: 9px 20px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .log-save-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── CORRELATION SECTION ── */
+  .insights-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 768px) {
+    .insights-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (max-width: 480px) {
+    .insights-grid { grid-template-columns: 1fr; }
+  }
+
+  .insight-item {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  .insight-label {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .insight-value {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .insight-note { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
+
+  /* ── LOADING STATE ── */
+  #loading-screen {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .loading-ring {
+    width: 48px; height: 48px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── ERROR ── */
+  .error-banner {
+    background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.3);
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 13px;
+    color: #fca5a5;
+    margin-bottom: 16px;
+    display: none;
+  }
+
+  /* ── SECTION HEADER ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .section-header h2 {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .section-header::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    padding: 24px 28px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── API KEY INPUT in settings ── */
+  .api-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .api-input-small {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+  }
+
+  .api-input-small:focus { border-color: var(--accent2); }
+
+  .api-save-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border-bright);
+    border-radius: 8px;
+    padding: 9px 16px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .api-save-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  .section-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 28px 0;
+  }
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+<div id="setup-screen">
+  <div class="setup-card">
+    <div class="setup-logo">
+      <div class="ring-icon"></div>
+      <span>Oura Health Dashboard</span>
+    </div>
+    <h1 class="setup-title">你的增强版<br>健康大脑</h1>
+    <p class="setup-sub">输入 Oura Personal Access Token，开始监控睡眠、恢复、HRV趋势，以及AI驱动的主动预警。</p>
+
+    <p class="setup-label">Oura Personal Access Token</p>
+    <input type="password" class="setup-input" id="token-input" placeholder="粘贴你的 Token..." />
+    <p class="setup-hint">
+      前往 <a href="https://cloud.ouraring.com/personal-access-tokens" target="_blank">cloud.ouraring.com/personal-access-tokens</a> 生成 Token。<br>
+      Token 仅存储在你的浏览器本地，不会上传任何服务器。
+    </p>
+
+    <p class="setup-label">DeepSeek API Key（可选，用于AI简报）</p>
+    <input type="password" class="setup-input" id="ds-input" placeholder="sk-... （可跳过）" />
+    <p class="setup-hint">
+      前往 <a href="https://platform.deepseek.com" target="_blank">platform.deepseek.com</a> 获取，费用极低。不填则跳过AI分析功能。
+    </p>
+
+    <button class="setup-btn" onclick="startDashboard()">进入 Dashboard →</button>
+    <div class="setup-privacy">
+      所有 Token 和数据均仅在你的浏览器本地存储（localStorage），不经过任何第三方服务器。
+    </div>
+  </div>
+</div>
+
+<!-- LOADING SCREEN -->
+<div id="loading-screen">
+  <div class="loading-ring"></div>
+  <p class="loading-text">正在从 Oura API 拉取数据...</p>
+</div>
+
+<!-- MAIN DASHBOARD -->
+<div id="dashboard">
+
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-logo">Oura <span>Health</span></div>
+      <div class="topbar-date" id="topbar-date">--</div>
+    </div>
+    <div class="topbar-right">
+      <button class="refresh-btn" onclick="refreshData()">↺ 刷新数据</button>
+      <button class="logout-btn" onclick="logout()">退出</button>
+    </div>
+  </div>
+
+  <div class="main-content">
+
+    <!-- ERROR BANNER -->
+    <div class="error-banner" id="error-banner"></div>
+
+    <!-- ACTIVE ALERTS -->
+    <div class="alerts-section" id="alerts-section"></div>
+
+    <!-- SCORES -->
+    <div class="section-header"><h2>今日核心指标</h2></div>
+    <div class="score-grid">
+      <div class="score-card sleep">
+        <div class="score-label">睡眠评分</div>
+        <div class="score-value" id="sleep-score">--</div>
+        <div class="score-delta" id="sleep-delta">--</div>
+        <div class="score-bar"><div class="score-bar-fill" id="sleep-bar" style="width:0%"></div></div>
+      </div>
+      <div class="score-card readiness">
+        <div class="score-label">准备度</div>
+        <div class="score-value" id="readiness-score">--</div>
+        <div class="score-delta" id="readiness-delta">--</div>
+        <div class="score-bar"><div class="score-bar-fill" id="readiness-bar" style="width:0%"></div></div>
+      </div>
+      <div class="score-card hrv">
+        <div class="score-label">HRV<span class="score-unit">ms</span></div>
+        <div class="score-value" id="hrv-score">--</div>
+        <div class="score-delta" id="hrv-delta">--</div>
+        <div class="score-bar"><div class="score-bar-fill" id="hrv-bar" style="width:0%"></div></div>
+      </div>
+      <div class="score-card activity">
+        <div class="score-label">活动评分</div>
+        <div class="score-value" id="activity-score">--</div>
+        <div class="score-delta" id="activity-delta">--</div>
+        <div class="score-bar"><div class="score-bar-fill" id="activity-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <!-- TRAINING DECISION -->
+    <div class="section-header"><h2>今日训练决策</h2></div>
+    <div class="training-card" id="training-card">
+      <div class="training-indicator medium" id="training-indicator">
+        <div class="t-icon">🏃</div>
+        <div class="t-label">加载中</div>
+      </div>
+      <div class="training-info">
+        <div class="training-title" id="training-title">计算中...</div>
+        <div class="training-desc" id="training-desc">正在分析你的 Readiness 和 HRV 数据...</div>
+      </div>
+    </div>
+
+    <!-- SLEEP STAGES -->
+    <div class="section-header"><h2>昨晚睡眠结构</h2></div>
+    <div class="chart-card" style="margin-bottom:24px;">
+      <div class="sleep-stages" id="sleep-stages">
+        <div class="stage-item">
+          <div class="stage-label">深度</div>
+          <div class="stage-value stage-deep" id="deep-sleep">--</div>
+        </div>
+        <div class="stage-item">
+          <div class="stage-label">REM</div>
+          <div class="stage-value stage-rem" id="rem-sleep">--</div>
+        </div>
+        <div class="stage-item">
+          <div class="stage-label">浅睡</div>
+          <div class="stage-value stage-light" id="light-sleep">--</div>
+        </div>
+        <div class="stage-item">
+          <div class="stage-label">清醒</div>
+          <div class="stage-value stage-awake" id="awake-sleep">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="section-header"><h2>30天趋势</h2></div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">HRV 趋势</div>
+          <div class="chart-badge">心率变异性</div>
+        </div>
+        <div class="chart-container">
+          <canvas id="hrv-chart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">睡眠评分</div>
+          <div class="chart-badge">30天</div>
+        </div>
+        <div class="chart-container">
+          <canvas id="sleep-chart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">准备度趋势</div>
+          <div class="chart-badge">Readiness</div>
+        </div>
+        <div class="chart-container">
+          <canvas id="readiness-chart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">静息心率</div>
+          <div class="chart-badge">RHR bpm</div>
+        </div>
+        <div class="chart-container">
+          <canvas id="rhr-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- KEY INSIGHTS -->
+    <div class="section-header"><h2>关键洞察</h2></div>
+    <div class="insights-grid" id="insights-grid">
+      <div class="insight-item">
+        <div class="insight-label">7天平均HRV</div>
+        <div class="insight-value" id="ins-hrv-avg">--</div>
+        <div class="insight-note" id="ins-hrv-note">加载中...</div>
+      </div>
+      <div class="insight-item">
+        <div class="insight-label">睡眠债（3天）</div>
+        <div class="insight-value" id="ins-sleep-debt">--</div>
+        <div class="insight-note" id="ins-sleep-debt-note">加载中...</div>
+      </div>
+      <div class="insight-item">
+        <div class="insight-label">30天平均睡眠</div>
+        <div class="insight-value" id="ins-sleep-avg">--</div>
+        <div class="insight-note" id="ins-sleep-avg-note">加载中...</div>
+      </div>
+    </div>
+
+    <!-- AI BRIEF -->
+    <div class="section-header"><h2>AI 健康简报</h2></div>
+    <div class="ai-card">
+      <div class="ai-header">
+        <div class="ai-title-row">
+          <div class="ai-dot"></div>
+          <div class="ai-title">DeepSeek 驱动的个性化分析</div>
+        </div>
+        <button class="ai-generate-btn" id="ai-btn" onclick="generateAIBrief()">生成简报</button>
+      </div>
+      <div class="ai-content" id="ai-content">
+        <p style="color:var(--text-dim)">点击「生成简报」，AI 将基于你的实际数据生成今日健康分析和建议，包含 HRV 趋势解读、睡眠质量评估、训练建议等。需要配置 DeepSeek API Key。</p>
+      </div>
+    </div>
+
+    <!-- DAILY LOG -->
+    <div class="section-header"><h2>今日生活日志</h2></div>
+    <div class="log-card">
+      <div class="log-title">记录关键变量，帮助AI做更准确的交叉分析</div>
+      <div class="log-grid">
+        <div class="log-item">
+          <label>饮酒</label>
+          <select id="log-alcohol">
+            <option value="0">无</option>
+            <option value="1">1杯</option>
+            <option value="2">2杯</option>
+            <option value="3">3杯以上</option>
+          </select>
+        </div>
+        <div class="log-item">
+          <label>最后咖啡时间</label>
+          <input type="time" id="log-coffee" value="14:00" />
+        </div>
+        <div class="log-item">
+          <label>压力等级 (1-5)</label>
+          <input type="number" id="log-stress" min="1" max="5" value="3" />
+        </div>
+        <div class="log-item">
+          <label>晚餐时间</label>
+          <input type="time" id="log-dinner" value="19:00" />
+        </div>
+        <div class="log-item">
+          <label>训练强度</label>
+          <select id="log-workout">
+            <option value="rest">休息日</option>
+            <option value="low">低强度</option>
+            <option value="medium">中强度</option>
+            <option value="high">高强度</option>
+          </select>
+        </div>
+        <div class="log-item">
+          <label>出行/时差</label>
+          <select id="log-travel">
+            <option value="no">在家</option>
+            <option value="domestic">国内出差</option>
+            <option value="hk">飞港</option>
+            <option value="jp">飞日本</option>
+          </select>
+        </div>
+      </div>
+      <button class="log-save-btn" onclick="saveLog()">保存今日日志 →</button>
+      <span id="log-saved-msg" style="font-size:12px;color:var(--good);margin-left:12px;display:none;">✓ 已保存</span>
+    </div>
+
+    <!-- DeepSeek API Setting -->
+    <div class="section-header"><h2>设置</h2></div>
+    <div class="chart-card" style="margin-bottom:24px;">
+      <div class="chart-title" style="margin-bottom:12px;">DeepSeek API Key</div>
+      <div class="api-row">
+        <input type="password" class="api-input-small" id="ds-setting-input" placeholder="sk-..." />
+        <button class="api-save-btn" onclick="saveDSKey()">保存</button>
+      </div>
+      <p style="font-size:11px;color:var(--text-dim)">
+        仅存储在浏览器 localStorage，不上传任何服务器。前往 <a href="https://platform.deepseek.com" target="_blank" style="color:var(--accent2)">platform.deepseek.com</a> 获取。
+      </p>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    Oura Health Dashboard · 数据来源：Oura API v2 · Token 本地存储，零数据上传
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+let ouraToken = '';
+let dsKey = '';
+let healthData = {};
+let charts = {};
+
+// ── INIT ──
+window.addEventListener('DOMContentLoaded', () => {
+  ouraToken = localStorage.getItem('oura_token') || '';
+  dsKey = localStorage.getItem('ds_key') || '';
+  if (ouraToken) {
+    loadDashboard();
+  }
+  // Restore log
+  const log = getSavedLog();
+  if (log) {
+    document.getElementById('log-alcohol').value = log.alcohol || '0';
+    document.getElementById('log-coffee').value = log.coffee || '14:00';
+    document.getElementById('log-stress').value = log.stress || '3';
+    document.getElementById('log-dinner').value = log.dinner || '19:00';
+    document.getElementById('log-workout').value = log.workout || 'rest';
+    document.getElementById('log-travel').value = log.travel || 'no';
+  }
+});
+
+function startDashboard() {
+  const t = document.getElementById('token-input').value.trim();
+  const ds = document.getElementById('ds-input').value.trim();
+  if (!t) { alert('请输入 Oura Personal Access Token'); return; }
+  ouraToken = t;
+  localStorage.setItem('oura_token', t);
+  if (ds) { dsKey = ds; localStorage.setItem('ds_key', ds); }
+  loadDashboard();
+}
+
+function logout() {
+  if (!confirm('清除 Token 并退出？')) return;
+  localStorage.removeItem('oura_token');
+  localStorage.removeItem('ds_key');
+  location.reload();
+}
+
+function saveDSKey() {
+  const k = document.getElementById('ds-setting-input').value.trim();
+  if (k) { dsKey = k; localStorage.setItem('ds_key', k); alert('DeepSeek API Key 已保存'); }
+}
+
+// ── DATA LOADING ──
+async function loadDashboard() {
+  show('loading-screen');
+  hide('setup-screen');
+  hide('dashboard');
+
+  // Update date
+  const now = new Date();
+  document.getElementById('topbar-date').textContent =
+    now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+
+  try {
+    const [sleepData, readinessData, activityData] = await Promise.all([
+      fetchOura('daily_sleep', 30),
+      fetchOura('daily_readiness', 30),
+      fetchOura('daily_activity', 30),
+    ]);
+
+    healthData = { sleep: sleepData, readiness: readinessData, activity: activityData };
+    renderDashboard();
+
+    hide('loading-screen');
+    show('dashboard');
+    document.getElementById('dashboard').style.display = 'block';
+
+  } catch (e) {
+    hide('loading-screen');
+    show('setup-screen');
+    showError('API 请求失败: ' + e.message + '。请检查 Token 是否正确。');
+  }
+}
+
+async function refreshData() {
+  await loadDashboard();
+}
+
+async function fetchOura(endpoint, days) {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - days);
+
+  const startStr = start.toISOString().split('T')[0];
+  const endStr = end.toISOString().split('T')[0];
+
+  const url = `https://api.ouraring.com/v2/usercollection/${endpoint}?start_date=${startStr}&end_date=${endStr}`;
+
+  const res = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${ouraToken}` }
+  });
+
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('Token 无效或已过期');
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  const json = await res.json();
+  return json.data || [];
+}
+
+// ── RENDER ──
+function renderDashboard() {
+  const sleep = healthData.sleep || [];
+  const readiness = healthData.readiness || [];
+  const activity = healthData.activity || [];
+
+  // Sort by date
+  sleep.sort((a,b) => a.day.localeCompare(b.day));
+  readiness.sort((a,b) => a.day.localeCompare(b.day));
+  activity.sort((a,b) => a.day.localeCompare(b.day));
+
+  const latestSleep = sleep[sleep.length - 1] || {};
+  const latestReadiness = readiness[readiness.length - 1] || {};
+  const latestActivity = activity[activity.length - 1] || {};
+
+  const prevSleep = sleep[sleep.length - 2] || {};
+  const prevReadiness = readiness[readiness.length - 2] || {};
+
+  // ── SCORES ──
+  setScore('sleep-score', 'sleep-bar', 'sleep-delta', latestSleep.score, prevSleep.score);
+  setScore('readiness-score', 'readiness-bar', 'readiness-delta', latestReadiness.score, prevReadiness.score);
+  setScore('activity-score', 'activity-bar', 'activity-delta', latestActivity.score, null);
+
+  // HRV from readiness contributors
+  const hrv = latestReadiness.contributors?.hrv_balance;
+  const hrv7 = readiness.slice(-7).map(r => r.contributors?.hrv_balance).filter(Boolean);
+  const hrv7avg = hrv7.length ? Math.round(hrv7.reduce((a,b) => a+b, 0) / hrv7.length) : null;
+  const prevHrv = readiness[readiness.length - 2]?.contributors?.hrv_balance;
+
+  // Use actual HRV ms from sleep data if available
+  const actualHrv = latestSleep.average_hrv;
+  const actualHrvPrev = prevSleep.average_hrv;
+  if (actualHrv) {
+    setScore('hrv-score', 'hrv-bar', 'hrv-delta', Math.round(actualHrv), actualHrvPrev ? Math.round(actualHrvPrev) : null, 100);
+  } else {
+    document.getElementById('hrv-score').textContent = hrv || '--';
+    document.getElementById('hrv-bar').style.width = hrv ? `${hrv}%` : '0%';
+  }
+
+  // ── SLEEP STAGES ──
+  if (latestSleep.contributors) {
+    const c = latestSleep.contributors;
+    const toHours = mins => mins ? `${Math.floor(mins/60)}h${mins%60 > 0 ? (mins%60)+'m':''}` : '--';
+    document.getElementById('deep-sleep').textContent = toHours(latestSleep.deep_sleep_duration ? Math.round(latestSleep.deep_sleep_duration/60) : null);
+    document.getElementById('rem-sleep').textContent = toHours(latestSleep.rem_sleep_duration ? Math.round(latestSleep.rem_sleep_duration/60) : null);
+    document.getElementById('light-sleep').textContent = toHours(latestSleep.light_sleep_duration ? Math.round(latestSleep.light_sleep_duration/60) : null);
+    document.getElementById('awake-sleep').textContent = toHours(latestSleep.awake_time ? Math.round(latestSleep.awake_time/60) : null);
+  }
+
+  // ── TRAINING DECISION ──
+  const r = latestReadiness.score || 0;
+  const ind = document.getElementById('training-indicator');
+  const title = document.getElementById('training-title');
+  const desc = document.getElementById('training-desc');
+
+  ind.className = 'training-indicator';
+  if (r >= 85) {
+    ind.classList.add('high');
+    ind.querySelector('.t-icon').textContent = '💪';
+    ind.querySelector('.t-label').textContent = '高强度';
+    title.textContent = '绿灯 — 适合高强度训练';
+    desc.textContent = `今日 Readiness ${r}，HRV 和恢复指标良好。这是冲击 PB 或进行艰苦训练的好时机。充分热身后可全力投入。`;
+  } else if (r >= 70) {
+    ind.classList.add('medium');
+    ind.querySelector('.t-icon').textContent = '🏃';
+    ind.querySelector('.t-label').textContent = '中强度';
+    title.textContent = '黄灯 — 中等强度训练';
+    desc.textContent = `今日 Readiness ${r}，身体处于正常恢复状态。中等强度训练没问题，但避免超量，注意心率不要过高。`;
+  } else if (r >= 55) {
+    ind.classList.add('low');
+    ind.querySelector('.t-icon').textContent = '🚶';
+    ind.querySelector('.t-label').textContent = '低强度';
+    title.textContent = '橙灯 — 建议低强度活动';
+    desc.textContent = `今日 Readiness ${r}，身体仍在恢复中。建议散步、拉伸或瑜伽等低强度活动，高强度训练会加深疲劳累积。`;
+  } else {
+    ind.classList.add('rest');
+    ind.querySelector('.t-icon').textContent = '😴';
+    ind.querySelector('.t-label').textContent = '休息';
+    title.textContent = '红灯 — 强制休息日';
+    desc.textContent = `今日 Readiness 仅 ${r}，身体发出明确的恢复信号。今天训练会增加受伤风险并延缓恢复，优先保证睡眠和补水。`;
+  }
+
+  // ── KEY INSIGHTS ──
+  const hrv7Actual = sleep.slice(-7).map(s => s.average_hrv).filter(Boolean);
+  const hrv7AvgActual = hrv7Actual.length ? Math.round(hrv7Actual.reduce((a,b)=>a+b,0)/hrv7Actual.length) : null;
+  const hrv30Actual = sleep.slice(-30).map(s => s.average_hrv).filter(Boolean);
+  const hrv30AvgActual = hrv30Actual.length ? Math.round(hrv30Actual.reduce((a,b)=>a+b,0)/hrv30Actual.length) : null;
+
+  document.getElementById('ins-hrv-avg').textContent = hrv7AvgActual ? `${hrv7AvgActual} ms` : '--';
+  if (hrv7AvgActual && hrv30AvgActual) {
+    const diff = hrv7AvgActual - hrv30AvgActual;
+    document.getElementById('ins-hrv-note').textContent = diff >= 0
+      ? `↑ 比30天均值高 ${Math.abs(diff)} ms，恢复趋势良好`
+      : `↓ 比30天均值低 ${Math.abs(diff)} ms，需关注恢复状态`;
+    document.getElementById('ins-hrv-note').style.color = diff >= 0 ? 'var(--good)' : 'var(--warn)';
+  }
+
+  // Sleep debt (3 days, target 8h = 480 mins)
+  const sleep3 = sleep.slice(-3).map(s => s.total_sleep_duration || 0);
+  const sleep3avg = sleep3.length ? sleep3.reduce((a,b)=>a+b,0)/sleep3.length : 0;
+  const TARGET_SLEEP = 27000; // 7.5 hours in seconds
+  const debt = Math.max(0, TARGET_SLEEP - sleep3avg);
+  const debtHours = (debt / 3600).toFixed(1);
+  document.getElementById('ins-sleep-debt').textContent = debt > 0 ? `${debtHours}h` : '0h';
+  document.getElementById('ins-sleep-debt-note').textContent = debt > 0
+    ? `3天平均睡眠不足，建议今晚提前入睡`
+    : `3天睡眠充足，维持当前作息`;
+  document.getElementById('ins-sleep-debt-note').style.color = debt > 1800 ? 'var(--warn)' : 'var(--good)';
+
+  // 30-day sleep avg
+  const sleep30 = sleep.map(s => s.total_sleep_duration || 0).filter(Boolean);
+  const sleep30avg = sleep30.length ? sleep30.reduce((a,b)=>a+b,0)/sleep30.length : 0;
+  const sleep30h = Math.floor(sleep30avg/3600);
+  const sleep30m = Math.floor((sleep30avg % 3600)/60);
+  document.getElementById('ins-sleep-avg').textContent = sleep30avg > 0 ? `${sleep30h}h${sleep30m}m` : '--';
+  document.getElementById('ins-sleep-avg-note').textContent = sleep30avg >= 25200
+    ? '30天平均≥7小时，睡眠习惯良好'
+    : '30天平均<7小时，长期睡眠不足需关注';
+  document.getElementById('ins-sleep-avg-note').style.color = sleep30avg >= 25200 ? 'var(--good)' : 'var(--warn)';
+
+  // ── ALERTS ──
+  renderAlerts(latestReadiness, latestSleep, sleep, readiness);
+
+  // ── CHARTS ──
+  renderCharts(sleep, readiness);
+}
+
+function setScore(valId, barId, deltaId, val, prev, maxVal = 100) {
+  const el = document.getElementById(valId);
+  const bar = document.getElementById(barId);
+  const delta = document.getElementById(deltaId);
+
+  if (val === undefined || val === null) {
+    el.textContent = '--';
+    return;
+  }
+
+  el.textContent = Math.round(val);
+  bar.style.width = `${Math.min(100, (val / maxVal) * 100)}%`;
+
+  if (prev !== null && prev !== undefined) {
+    const diff = Math.round(val - prev);
+    if (diff > 0) {
+      delta.innerHTML = `<span class="delta-up">↑ ${diff}</span> vs 昨日`;
+    } else if (diff < 0) {
+      delta.innerHTML = `<span class="delta-down">↓ ${Math.abs(diff)}</span> vs 昨日`;
+    } else {
+      delta.innerHTML = `<span class="delta-flat">— 持平</span> vs 昨日`;
+    }
+  } else {
+    delta.textContent = '';
+  }
+}
+
+function renderAlerts(readiness, sleep, sleepArr, readinessArr) {
+  const alerts = [];
+  const r = readiness.score;
+  const hrv7 = sleepArr.slice(-7).map(s => s.average_hrv).filter(Boolean);
+  const hrv14 = sleepArr.slice(-14, -7).map(s => s.average_hrv).filter(Boolean);
+
+  // HRV declining trend
+  if (hrv7.length >= 5 && hrv14.length >= 5) {
+    const avg7 = hrv7.reduce((a,b)=>a+b,0)/hrv7.length;
+    const avg14 = hrv14.reduce((a,b)=>a+b,0)/hrv14.length;
+    const pct = ((avg7 - avg14) / avg14) * 100;
+    if (pct < -10) {
+      alerts.push({ type: 'danger', icon: '⚠️', msg: `HRV 过去7天较前7天下降 ${Math.abs(pct).toFixed(0)}%（${Math.round(avg14)} → ${Math.round(avg7)} ms），建议本周主动安排恢复日，减少高强度训练。` });
+    } else if (pct < -5) {
+      alerts.push({ type: 'warn', icon: '📉', msg: `HRV 出现下降趋势（-${Math.abs(pct).toFixed(0)}%），注意恢复质量，避免继续叠加训练负荷。` });
+    }
+  }
+
+  // Sleep debt
+  const sleep3 = sleepArr.slice(-3).map(s => s.total_sleep_duration || 0);
+  const sleep3avg = sleep3.length ? sleep3.reduce((a,b)=>a+b,0)/sleep3.length : 0;
+  const debt = Math.max(0, 27000 - sleep3avg);
+  if (debt > 3600) {
+    alerts.push({ type: 'warn', icon: '💤', msg: `3天累计睡眠债约 ${(debt/3600).toFixed(1)} 小时，建议今晚提前30-60分钟入睡，避免认知和恢复能力下降。` });
+  }
+
+  // Low readiness
+  if (r !== undefined && r < 60) {
+    alerts.push({ type: 'danger', icon: '🔴', msg: `今日 Readiness 仅 ${r}，身体处于低恢复状态。强烈建议今天不进行高强度训练，优先保证休息。` });
+  } else if (r !== undefined && r >= 85) {
+    alerts.push({ type: 'good', icon: '✅', msg: `今日 Readiness ${r}，身体状态优秀！这是进行高强度训练或挑战的好时机。` });
+  }
+
+  // Check travel impact
+  const log = getSavedLog();
+  if (log && (log.travel === 'hk' || log.travel === 'jp')) {
+    alerts.push({ type: 'warn', icon: '✈️', msg: `检测到你记录了出行/时差。跨时区旅行通常会影响HRV和睡眠质量2-3天，建议降低训练期望。` });
+  }
+
+  const section = document.getElementById('alerts-section');
+  if (alerts.length === 0) {
+    section.innerHTML = '';
+    return;
+  }
+
+  section.innerHTML = alerts.map(a => `
+    <div class="alert-item ${a.type}">
+      <span class="alert-icon">${a.icon}</span>
+      <span>${a.msg}</span>
+    </div>
+  `).join('');
+}
+
+function renderCharts(sleep, readiness) {
+  const labels = sleep.map(s => {
+    const d = new Date(s.day);
+    return `${d.getMonth()+1}/${d.getDate()}`;
+  });
+
+  const hrvData = sleep.map(s => s.average_hrv || null);
+  const sleepScores = sleep.map(s => s.score || null);
+  const readinessScores = readiness.map(r => r.score || null);
+  const rhrData = sleep.map(s => s.lowest_heart_rate || null);
+
+  const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: {
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        ticks: { color: '#6b7280', font: { family: 'DM Mono', size: 10 }, maxTicksLimit: 8 }
+      },
+      y: {
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        ticks: { color: '#6b7280', font: { family: 'DM Mono', size: 10 } }
+      }
+    }
+  };
+
+  const makeLineDataset = (data, color) => ({
+    data,
+    borderColor: color,
+    backgroundColor: color.replace(')', ', 0.08)').replace('rgb', 'rgba').replace('#', 'rgba(').replace(')', ''),
+    borderWidth: 2,
+    pointRadius: 0,
+    pointHoverRadius: 4,
+    tension: 0.4,
+    fill: true,
+    spanGaps: true
+  });
+
+  // Destroy old charts
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+
+  charts.hrv = new Chart(document.getElementById('hrv-chart'), {
+    type: 'line',
+    data: { labels, datasets: [makeLineDataset(hrvData, '#c084fc')] },
+    options: { ...chartDefaults }
+  });
+
+  charts.sleep = new Chart(document.getElementById('sleep-chart'), {
+    type: 'line',
+    data: { labels, datasets: [makeLineDataset(sleepScores, '#5bc8ff')] },
+    options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 50, max: 100 } } }
+  });
+
+  charts.readiness = new Chart(document.getElementById('readiness-chart'), {
+    type: 'line',
+    data: { labels, datasets: [makeLineDataset(readinessScores, '#7effa0')] },
+    options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 50, max: 100 } } }
+  });
+
+  charts.rhr = new Chart(document.getElementById('rhr-chart'), {
+    type: 'line',
+    data: { labels, datasets: [makeLineDataset(rhrData, '#ff8c5a')] },
+    options: { ...chartDefaults }
+  });
+}
+
+// ── AI BRIEF ──
+async function generateAIBrief() {
+  const key = dsKey || localStorage.getItem('ds_key');
+  if (!key) {
+    document.getElementById('ai-content').innerHTML = `<p style="color:var(--warn)">请先在「设置」中填写 DeepSeek API Key，然后再生成简报。</p>`;
+    return;
+  }
+
+  const btn = document.getElementById('ai-btn');
+  btn.disabled = true;
+  btn.textContent = '生成中...';
+
+  document.getElementById('ai-content').innerHTML = `
+    <div class="ai-loading">
+      正在分析你的健康数据
+      <div class="ai-loading-dots"><span></span><span></span><span></span></div>
+    </div>
+  `;
+
+  const sleep = healthData.sleep || [];
+  const readiness = healthData.readiness || [];
+  const latestSleep = sleep[sleep.length - 1] || {};
+  const latestReadiness = readiness[readiness.length - 1] || {};
+  const hrv7 = sleep.slice(-7).map(s => s.average_hrv).filter(Boolean);
+  const hrv7avg = hrv7.length ? Math.round(hrv7.reduce((a,b)=>a+b,0)/hrv7.length) : null;
+  const hrv30 = sleep.slice(-30).map(s => s.average_hrv).filter(Boolean);
+  const hrv30avg = hrv30.length ? Math.round(hrv30.reduce((a,b)=>a+b,0)/hrv30.length) : null;
+  const sleep30 = sleep.map(s => s.total_sleep_duration || 0).filter(Boolean);
+  const sleep30avg = sleep30.length ? Math.round(sleep30.reduce((a,b)=>a+b,0)/sleep30.length/3600*10)/10 : null;
+  const log = getSavedLog();
+
+  const prompt = `你是一位专业的运动健康顾问，请基于以下 Oura Ring 数据为用户生成一份今日健康简报（中文，约200字，分3段）：
+
+用户数据（今日/近期）：
+- 今日睡眠评分：${latestSleep.score || '未知'}
+- 今日准备度(Readiness)：${latestReadiness.score || '未知'}
+- 今日HRV：${latestSleep.average_hrv ? Math.round(latestSleep.average_hrv) + ' ms' : '未知'}
+- 7天平均HRV：${hrv7avg ? hrv7avg + ' ms' : '未知'}
+- 30天平均HRV：${hrv30avg ? hrv30avg + ' ms' : '未知'}
+- 今日深度睡眠：${latestSleep.deep_sleep_duration ? Math.round(latestSleep.deep_sleep_duration/3600*10)/10 + 'h' : '未知'}
+- 今日REM睡眠：${latestSleep.rem_sleep_duration ? Math.round(latestSleep.rem_sleep_duration/3600*10)/10 + 'h' : '未知'}
+- 30天平均睡眠时长：${sleep30avg ? sleep30avg + 'h' : '未知'}
+${log ? `- 昨晚饮酒：${['无','1杯','2杯','3杯以上'][log.alcohol||0]}
+- 最后咖啡时间：${log.coffee || '未填'}
+- 压力等级：${log.stress || '未填'}/5
+- 出行状态：${log.travel || '在家'}` : ''}
+
+请分3段：1）今日身体状态总结，2）HRV/睡眠趋势解读，3）今日具体建议（训练/恢复/饮食/睡眠）。语气专业但亲切，不要废话。`;
+
+  try {
+    const res = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 600,
+        temperature: 0.7
+      })
+    });
+
+    if (!res.ok) throw new Error(`DeepSeek API 错误: ${res.status}`);
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content || '生成失败';
+    const paragraphs = text.split('\n').filter(p => p.trim()).map(p => `<p>${p}</p>`).join('');
+    document.getElementById('ai-content').innerHTML = paragraphs;
+
+  } catch (e) {
+    document.getElementById('ai-content').innerHTML = `<p style="color:var(--danger)">生成失败: ${e.message}</p>`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = '重新生成';
+}
+
+// ── LOG ──
+function saveLog() {
+  const log = {
+    date: new Date().toISOString().split('T')[0],
+    alcohol: document.getElementById('log-alcohol').value,
+    coffee: document.getElementById('log-coffee').value,
+    stress: document.getElementById('log-stress').value,
+    dinner: document.getElementById('log-dinner').value,
+    workout: document.getElementById('log-workout').value,
+    travel: document.getElementById('log-travel').value,
+  };
+  localStorage.setItem('oura_daily_log', JSON.stringify(log));
+  const msg = document.getElementById('log-saved-msg');
+  msg.style.display = 'inline';
+  setTimeout(() => msg.style.display = 'none', 2000);
+}
+
+function getSavedLog() {
+  try {
+    const raw = localStorage.getItem('oura_daily_log');
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+// ── UTILS ──
+function show(id) { document.getElementById(id).style.display = 'flex'; }
+function hide(id) { document.getElementById(id).style.display = 'none'; }
+
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+  else alert(msg);
+}
+</script>
+</body>
+</html>
